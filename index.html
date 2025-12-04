@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UML Class Diagram Builder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background-color: #16213e;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            border-right: 2px solid #0f3460;
+        }
+
+        .sidebar h1 {
+            font-size: 1.4rem;
+            color: #e94560;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-section {
+            background-color: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .sidebar-section h3 {
+            color: #e94560;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #e94560;
+            padding-bottom: 5px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background-color: #e94560;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #ff6b6b;
+        }
+
+        .btn-secondary {
+            background-color: #533483;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7c3aed;
+        }
+
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #34d399;
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #f87171;
+        }
+
+        /* Relationship Type Buttons */
+        .relationship-types {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .rel-btn {
+            padding: 8px 12px;
+            border: 2px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            background-color: #1a1a2e;
+            color: #ccc;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+
+        .rel-btn:hover {
+            border-color: #e94560;
+        }
+
+        .rel-btn.active {
+            border-color: #e94560;
+            background-color: #e94560;
+            color: white;
+        }
+
+        .rel-btn .rel-icon {
+            display: inline-block;
+            width: 30px;
+            margin-right: 5px;
+        }
+
+        /* Canvas Container */
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3000px;
+            height: 3000px;
+            transform-origin: 0 0;
+        }
+
+        /* SVG Layer for Relationships */
+        #relationships-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #relationships-svg line,
+        #relationships-svg path,
+        #relationships-svg polygon {
+            pointer-events: stroke;
+        }
+
+        /* Group Styles */
+        .group {
+            position: absolute;
+            border: 2px dashed;
+            border-radius: 10px;
+            padding: 30px 15px 15px 15px;
+            min-width: 200px;
+            min-height: 150px;
+            z-index: 0;
+        }
+
+        .group-header {
+            position: absolute;
+            top: 5px;
+            left: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .group-delete {
+            cursor: pointer;
+            color: #ef4444;
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+
+        .group-delete:hover {
+            opacity: 1;
+        }
+
+        /* Class Box Styles */
+        .class-box {
+            position: absolute;
+            background-color: #fff;
+            border: 2px solid #333;
+            border-radius: 5px;
+            min-width: 150px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            cursor: move;
+            z-index: 10;
+            user-select: none;
+        }
+
+        .class-box.selected {
+            border-color: #e94560;
+            box-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+        }
+
+        .class-box:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .class-name {
+            background-color: #f0f0f0;
+            padding: 8px 10px;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            color: #333;
+            border-radius: 3px 3px 0 0;
+        }
+
+        .class-attributes,
+        .class-methods {
+            padding: 8px 10px;
+            font-size: 0.85rem;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            min-height: 25px;
+        }
+
+        .class-methods {
+            border-bottom: none;
+            border-radius: 0 0 3px 3px;
+        }
+
+        .class-attributes p,
+        .class-methods p {
+            margin: 2px 0;
+            font-family: 'Consolas', monospace;
+        }
+
+        .class-actions {
+            position: absolute;
+            top: -30px;
+            right: 0;
+            display: none;
+            gap: 5px;
+        }
+
+        .class-box:hover .class-actions {
+            display: flex;
+        }
+
+        .class-action-btn {
+            padding: 3px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .class-action-btn.edit {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .class-action-btn.delete {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        /* Relationship endpoint markers */
+        .relationship-endpoint {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 20;
+            display: none;
+        }
+
+        .class-box.selected .relationship-endpoint {
+            display: block;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background-color: #16213e;
+            padding: 25px;
+            border-radius: 10px;
+            width: 450px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal h2 {
+            color: #e94560;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background-color: #1a1a2e;
+            color: #eee;
+            font-size: 0.9rem;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-group small {
+            color: #888;
+            font-size: 0.75rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 5px;
+            z-index: 100;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            background-color: #16213e;
+            color: #eee;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background-color: #0f3460;
+        }
+
+        /* Instructions */
+        .instructions {
+            font-size: 0.8rem;
+            color: #888;
+            line-height: 1.5;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        /* Relationship line styles */
+        .relationship-line {
+            cursor: pointer;
+        }
+
+        .relationship-line:hover {
+            stroke: #e94560 !important;
+        }
+
+        /* Multiplicity labels */
+        .multiplicity-label {
+            font-size: 12px;
+            fill: #fff;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* Group List */
+        .group-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .group-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px;
+            background-color: #1a1a2e;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .group-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        /* Class List */
+        .class-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .class-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 8px;
+            background-color: #1a1a2e;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .class-item span {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .class-item span:hover {
+            color: #e94560;
+        }
+
+        /* Connecting mode indicator */
+        .connecting-mode {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #e94560;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            z-index: 100;
+            display: none;
+        }
+
+        .connecting-mode.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h1>📊 UML Class Diagram</h1>
+        
+        <div class="sidebar-section">
+            <h3>Classes</h3>
+            <button class="btn btn-primary" id="addClassBtn">+ Add Class</button>
+            <div class="class-list" id="classList"></div>
+        </div>
+
+        <div class="sidebar-section">
+            <h3>Groups/Packages</h3>
+            <button class="btn btn-secondary" id="addGroupBtn">+ Add Group</button>
+            <div class="group-list" id="groupList"></div>
+        </div>
+
+        <div class="sidebar-section">
+            <h3>Relationships</h3>
+            <div class="relationship-types">
+                <button class="rel-btn" data-type="association">
+                    <span class="rel-icon">——</span> Association
+                </button>
+                <button class="rel-btn" data-type="inheritance">
+                    <span class="rel-icon">—▷</span> Inheritance
+                </button>
+                <button class="rel-btn" data-type="composition">
+                    <span class="rel-icon">◆—</span> Composition
+                </button>
+                <button class="rel-btn" data-type="aggregation">
+                    <span class="rel-icon">◇—</span> Aggregation
+                </button>
+                <button class="rel-btn" data-type="implementation">
+                    <span class="rel-icon">--▷</span> Implementation
+                </button>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <h3>Export</h3>
+            <button class="btn btn-success" id="downloadPngBtn">📥 Download as PNG</button>
+        </div>
+
+        <div class="sidebar-section">
+            <h3>Instructions</h3>
+            <ul class="instructions">
+                <li>Click "Add Class" to create a new class</li>
+                <li>Drag classes to reposition them</li>
+                <li>Select a relationship type, then click two classes to connect</li>
+                <li>Hover over a class to edit or delete it</li>
+                <li>Click on a relationship line to delete it</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="canvas-container" id="canvasContainer">
+        <div id="canvas">
+            <svg id="relationships-svg"></svg>
+        </div>
+        <div class="connecting-mode" id="connectingMode">
+            Select first class for relationship
+        </div>
+        <div class="zoom-controls">
+            <button class="zoom-btn" id="zoomIn">+</button>
+            <button class="zoom-btn" id="zoomOut">−</button>
+            <button class="zoom-btn" id="zoomReset">⟲</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Class Modal -->
+    <div class="modal-overlay" id="classModal">
+        <div class="modal">
+            <h2 id="classModalTitle">Add Class</h2>
+            <form id="classForm">
+                <input type="hidden" id="classId">
+                <div class="form-group">
+                    <label for="className">Class Name</label>
+                    <input type="text" id="className" required placeholder="e.g., User">
+                </div>
+                <div class="form-group">
+                    <label for="classAttributes">Attributes</label>
+                    <textarea id="classAttributes" placeholder="e.g., id: int&#10;name: string&#10;email: string"></textarea>
+                    <small>One attribute per line. Format: name: type</small>
+                </div>
+                <div class="form-group">
+                    <label for="classMethods">Methods</label>
+                    <textarea id="classMethods" placeholder="e.g., login(): boolean&#10;logout(): void&#10;getOrders(): Order[]"></textarea>
+                    <small>One method per line. Format: name(params): returnType</small>
+                </div>
+                <div class="form-group">
+                    <label for="classGroup">Group/Package (optional)</label>
+                    <select id="classGroup">
+                        <option value="">No Group</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" id="cancelClassBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Group Modal -->
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal">
+            <h2>Add Group/Package</h2>
+            <form id="groupForm">
+                <div class="form-group">
+                    <label for="groupName">Group Name</label>
+                    <input type="text" id="groupName" required placeholder="e.g., Core Models">
+                </div>
+                <div class="form-group">
+                    <label for="groupColor">Color</label>
+                    <input type="color" id="groupColor" value="#4f46e5">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" id="cancelGroupBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Relationship Modal -->
+    <div class="modal-overlay" id="relationshipModal">
+        <div class="modal">
+            <h2>Configure Relationship</h2>
+            <form id="relationshipForm">
+                <input type="hidden" id="relFromClass">
+                <input type="hidden" id="relToClass">
+                <input type="hidden" id="relType">
+                <div class="form-group">
+                    <label for="relFromMultiplicity">From Multiplicity</label>
+                    <select id="relFromMultiplicity">
+                        <option value="">None</option>
+                        <option value="1">1</option>
+                        <option value="0..1">0..1</option>
+                        <option value="1..*">1..*</option>
+                        <option value="*">*</option>
+                        <option value="0..*">0..*</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="relToMultiplicity">To Multiplicity</label>
+                    <select id="relToMultiplicity">
+                        <option value="">None</option>
+                        <option value="1">1</option>
+                        <option value="0..1">0..1</option>
+                        <option value="1..*">1..*</option>
+                        <option value="*">*</option>
+                        <option value="0..*">0..*</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" id="cancelRelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Relationship</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Application State
+        const state = {
+            classes: [],
+            groups: [],
+            relationships: [],
+            selectedClass: null,
+            selectedRelationType: null,
+            connectingFrom: null,
+            zoom: 1,
+            pan: { x: 0, y: 0 },
+            isDragging: false,
+            dragTarget: null,
+            dragOffset: { x: 0, y: 0 }
+        };
+
+        let classIdCounter = 1;
+        let groupIdCounter = 1;
+        let relationshipIdCounter = 1;
+
+        // DOM Elements
+        const canvas = document.getElementById('canvas');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const svg = document.getElementById('relationships-svg');
+        const classModal = document.getElementById('classModal');
+        const groupModal = document.getElementById('groupModal');
+        const relationshipModal = document.getElementById('relationshipModal');
+        const connectingModeIndicator = document.getElementById('connectingMode');
+
+        // Initialize
+        function init() {
+            setupEventListeners();
+            updateSVGSize();
+        }
+
+        function setupEventListeners() {
+            // Add Class Button
+            document.getElementById('addClassBtn').addEventListener('click', () => {
+                openClassModal();
+            });
+
+            // Add Group Button
+            document.getElementById('addGroupBtn').addEventListener('click', () => {
+                groupModal.classList.add('active');
+            });
+
+            // Class Form Submit
+            document.getElementById('classForm').addEventListener('submit', handleClassSubmit);
+
+            // Group Form Submit
+            document.getElementById('groupForm').addEventListener('submit', handleGroupSubmit);
+
+            // Relationship Form Submit
+            document.getElementById('relationshipForm').addEventListener('submit', handleRelationshipSubmit);
+
+            // Cancel Buttons
+            document.getElementById('cancelClassBtn').addEventListener('click', () => {
+                classModal.classList.remove('active');
+            });
+
+            document.getElementById('cancelGroupBtn').addEventListener('click', () => {
+                groupModal.classList.remove('active');
+            });
+
+            document.getElementById('cancelRelBtn').addEventListener('click', () => {
+                relationshipModal.classList.remove('active');
+                cancelConnecting();
+            });
+
+            // Relationship Type Buttons
+            document.querySelectorAll('.rel-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectRelationType(btn.dataset.type);
+                });
+            });
+
+            // Download PNG
+            document.getElementById('downloadPngBtn').addEventListener('click', downloadPNG);
+
+            // Zoom Controls
+            document.getElementById('zoomIn').addEventListener('click', () => setZoom(state.zoom + 0.1));
+            document.getElementById('zoomOut').addEventListener('click', () => setZoom(state.zoom - 0.1));
+            document.getElementById('zoomReset').addEventListener('click', () => setZoom(1));
+
+            // Canvas click to deselect
+            canvas.addEventListener('click', (e) => {
+                if (e.target === canvas || e.target === svg) {
+                    deselectAll();
+                }
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    cancelConnecting();
+                    classModal.classList.remove('active');
+                    groupModal.classList.remove('active');
+                    relationshipModal.classList.remove('active');
+                }
+                if (e.key === 'Delete' && state.selectedClass) {
+                    deleteClass(state.selectedClass);
+                }
+            });
+
+            // Pan with mouse
+            let isPanning = false;
+            let panStart = { x: 0, y: 0 };
+
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (e.target === canvasContainer || e.target.id === 'canvas' || e.target.id === 'relationships-svg') {
+                    if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+                        isPanning = true;
+                        panStart = { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y };
+                        canvasContainer.style.cursor = 'grabbing';
+                    }
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isPanning) {
+                    state.pan.x = e.clientX - panStart.x;
+                    state.pan.y = e.clientY - panStart.y;
+                    updateCanvasTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isPanning = false;
+                canvasContainer.style.cursor = 'default';
+            });
+
+            // Zoom with wheel
+            canvasContainer.addEventListener('wheel', (e) => {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                    setZoom(state.zoom + delta);
+                }
+            });
+        }
+
+        function openClassModal(classData = null) {
+            document.getElementById('classModalTitle').textContent = classData ? 'Edit Class' : 'Add Class';
+            document.getElementById('classId').value = classData ? classData.id : '';
+            document.getElementById('className').value = classData ? classData.name : '';
+            document.getElementById('classAttributes').value = classData ? classData.attributes.join('\n') : '';
+            document.getElementById('classMethods').value = classData ? classData.methods.join('\n') : '';
+            
+            // Update group dropdown
+            const groupSelect = document.getElementById('classGroup');
+            groupSelect.innerHTML = '<option value="">No Group</option>';
+            state.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.name;
+                if (classData && classData.groupId === group.id) {
+                    option.selected = true;
+                }
+                groupSelect.appendChild(option);
+            });
+
+            classModal.classList.add('active');
+        }
+
+        function handleClassSubmit(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('classId').value;
+            const name = document.getElementById('className').value.trim();
+            const attributes = document.getElementById('classAttributes').value
+                .split('\n')
+                .map(a => a.trim())
+                .filter(a => a);
+            const methods = document.getElementById('classMethods').value
+                .split('\n')
+                .map(m => m.trim())
+                .filter(m => m);
+            const groupId = document.getElementById('classGroup').value;
+
+            if (id) {
+                // Edit existing class
+                const classObj = state.classes.find(c => c.id === parseInt(id));
+                if (classObj) {
+                    classObj.name = name;
+                    classObj.attributes = attributes;
+                    classObj.methods = methods;
+                    classObj.groupId = groupId ? parseInt(groupId) : null;
+                    updateClassElement(classObj);
+                }
+            } else {
+                // Add new class
+                const newClass = {
+                    id: classIdCounter++,
+                    name,
+                    attributes,
+                    methods,
+                    groupId: groupId ? parseInt(groupId) : null,
+                    x: 100 + Math.random() * 200,
+                    y: 100 + Math.random() * 200
+                };
+                state.classes.push(newClass);
+                createClassElement(newClass);
+            }
+
+            updateClassList();
+            updateGroupPositions();
+            renderRelationships();
+            classModal.classList.remove('active');
+        }
+
+        function handleGroupSubmit(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('groupName').value.trim();
+            const color = document.getElementById('groupColor').value;
+
+            const newGroup = {
+                id: groupIdCounter++,
+                name,
+                color,
+                x: 50,
+                y: 50,
+                width: 300,
+                height: 250
+            };
+
+            state.groups.push(newGroup);
+            createGroupElement(newGroup);
+            updateGroupList();
+            groupModal.classList.remove('active');
+            
+            // Reset form
+            document.getElementById('groupName').value = '';
+        }
+
+        function handleRelationshipSubmit(e) {
+            e.preventDefault();
+
+            const fromId = parseInt(document.getElementById('relFromClass').value);
+            const toId = parseInt(document.getElementById('relToClass').value);
+            const type = document.getElementById('relType').value;
+            const fromMultiplicity = document.getElementById('relFromMultiplicity').value;
+            const toMultiplicity = document.getElementById('relToMultiplicity').value;
+
+            const newRelationship = {
+                id: relationshipIdCounter++,
+                fromId,
+                toId,
+                type,
+                fromMultiplicity,
+                toMultiplicity
+            };
+
+            state.relationships.push(newRelationship);
+            renderRelationships();
+            relationshipModal.classList.remove('active');
+            cancelConnecting();
+        }
+
+        function createClassElement(classObj) {
+            const div = document.createElement('div');
+            div.className = 'class-box';
+            div.id = `class-${classObj.id}`;
+            div.style.left = `${classObj.x}px`;
+            div.style.top = `${classObj.y}px`;
+
+            div.innerHTML = `
+                <div class="class-actions">
+                    <button class="class-action-btn edit" onclick="editClass(${classObj.id})">Edit</button>
+                    <button class="class-action-btn delete" onclick="deleteClass(${classObj.id})">Delete</button>
+                </div>
+                <div class="class-name">${escapeHtml(classObj.name)}</div>
+                <div class="class-attributes">
+                    ${classObj.attributes.map(a => `<p>${escapeHtml(a)}</p>`).join('') || '<p style="color:#999">—</p>'}
+                </div>
+                <div class="class-methods">
+                    ${classObj.methods.map(m => `<p>${escapeHtml(m)}</p>`).join('') || '<p style="color:#999">—</p>'}
+                </div>
+            `;
+
+            // Drag functionality
+            div.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('class-action-btn')) return;
+                
+                if (state.selectedRelationType && state.connectingFrom === null) {
+                    // Start connecting
+                    state.connectingFrom = classObj.id;
+                    div.classList.add('selected');
+                    connectingModeIndicator.textContent = `Select target class for ${state.selectedRelationType}`;
+                    e.stopPropagation();
+                    return;
+                } else if (state.selectedRelationType && state.connectingFrom !== null) {
+                    // Complete connecting
+                    if (state.connectingFrom !== classObj.id) {
+                        document.getElementById('relFromClass').value = state.connectingFrom;
+                        document.getElementById('relToClass').value = classObj.id;
+                        document.getElementById('relType').value = state.selectedRelationType;
+                        relationshipModal.classList.add('active');
+                    }
+                    e.stopPropagation();
+                    return;
+                }
+
+                state.isDragging = true;
+                state.dragTarget = div;
+                const rect = div.getBoundingClientRect();
+                state.dragOffset = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                
+                selectClass(classObj.id);
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (state.isDragging && state.dragTarget) {
+                    const containerRect = canvasContainer.getBoundingClientRect();
+                    const newX = (e.clientX - containerRect.left - state.dragOffset.x - state.pan.x) / state.zoom;
+                    const newY = (e.clientY - containerRect.top - state.dragOffset.y - state.pan.y) / state.zoom;
+                    
+                    state.dragTarget.style.left = `${Math.max(0, newX)}px`;
+                    state.dragTarget.style.top = `${Math.max(0, newY)}px`;
+                    
+                    // Update class position in state
+                    const classId = parseInt(state.dragTarget.id.replace('class-', ''));
+                    const cls = state.classes.find(c => c.id === classId);
+                    if (cls) {
+                        cls.x = Math.max(0, newX);
+                        cls.y = Math.max(0, newY);
+                    }
+                    
+                    updateGroupPositions();
+                    renderRelationships();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                state.isDragging = false;
+                state.dragTarget = null;
+            });
+
+            canvas.appendChild(div);
+        }
+
+        function updateClassElement(classObj) {
+            const div = document.getElementById(`class-${classObj.id}`);
+            if (!div) return;
+
+            div.querySelector('.class-name').textContent = classObj.name;
+            div.querySelector('.class-attributes').innerHTML = 
+                classObj.attributes.map(a => `<p>${escapeHtml(a)}</p>`).join('') || '<p style="color:#999">—</p>';
+            div.querySelector('.class-methods').innerHTML = 
+                classObj.methods.map(m => `<p>${escapeHtml(m)}</p>`).join('') || '<p style="color:#999">—</p>';
+        }
+
+        function selectClass(id) {
+            deselectAll();
+            state.selectedClass = id;
+            const div = document.getElementById(`class-${id}`);
+            if (div) {
+                div.classList.add('selected');
+            }
+        }
+
+        function deselectAll() {
+            state.selectedClass = null;
+            document.querySelectorAll('.class-box.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+        }
+
+        function editClass(id) {
+            const classObj = state.classes.find(c => c.id === id);
+            if (classObj) {
+                openClassModal(classObj);
+            }
+        }
+
+        function deleteClass(id) {
+            if (!confirm('Delete this class and all its relationships?')) return;
+            
+            // Remove from state
+            state.classes = state.classes.filter(c => c.id !== id);
+            
+            // Remove relationships involving this class
+            state.relationships = state.relationships.filter(r => r.fromId !== id && r.toId !== id);
+            
+            // Remove DOM element
+            const div = document.getElementById(`class-${id}`);
+            if (div) {
+                div.remove();
+            }
+            
+            updateClassList();
+            updateGroupPositions();
+            renderRelationships();
+        }
+
+        function createGroupElement(group) {
+            const div = document.createElement('div');
+            div.className = 'group';
+            div.id = `group-${group.id}`;
+            div.style.left = `${group.x}px`;
+            div.style.top = `${group.y}px`;
+            div.style.width = `${group.width}px`;
+            div.style.height = `${group.height}px`;
+            div.style.borderColor = group.color;
+            div.style.backgroundColor = `${group.color}22`;
+
+            div.innerHTML = `
+                <div class="group-header" style="color: ${group.color}">
+                    📦 ${escapeHtml(group.name)}
+                    <span class="group-delete" onclick="deleteGroup(${group.id})">×</span>
+                </div>
+            `;
+
+            canvas.insertBefore(div, canvas.firstChild);
+        }
+
+        function deleteGroup(id) {
+            if (!confirm('Delete this group? Classes will not be deleted.')) return;
+            
+            // Remove group assignment from classes
+            state.classes.forEach(c => {
+                if (c.groupId === id) {
+                    c.groupId = null;
+                }
+            });
+            
+            // Remove from state
+            state.groups = state.groups.filter(g => g.id !== id);
+            
+            // Remove DOM element
+            const div = document.getElementById(`group-${id}`);
+            if (div) {
+                div.remove();
+            }
+            
+            updateGroupList();
+            updateClassList();
+        }
+
+        function updateGroupPositions() {
+            state.groups.forEach(group => {
+                const groupClasses = state.classes.filter(c => c.groupId === group.id);
+                if (groupClasses.length === 0) return;
+
+                let minX = Infinity, minY = Infinity;
+                let maxX = -Infinity, maxY = -Infinity;
+
+                groupClasses.forEach(cls => {
+                    const el = document.getElementById(`class-${cls.id}`);
+                    if (el) {
+                        const width = el.offsetWidth;
+                        const height = el.offsetHeight;
+                        minX = Math.min(minX, cls.x);
+                        minY = Math.min(minY, cls.y);
+                        maxX = Math.max(maxX, cls.x + width);
+                        maxY = Math.max(maxY, cls.y + height);
+                    }
+                });
+
+                const padding = 40;
+                const groupEl = document.getElementById(`group-${group.id}`);
+                if (groupEl) {
+                    group.x = minX - padding;
+                    group.y = minY - padding;
+                    group.width = maxX - minX + padding * 2;
+                    group.height = maxY - minY + padding * 2;
+                    
+                    groupEl.style.left = `${group.x}px`;
+                    groupEl.style.top = `${group.y}px`;
+                    groupEl.style.width = `${group.width}px`;
+                    groupEl.style.height = `${group.height}px`;
+                }
+            });
+        }
+
+        function updateClassList() {
+            const list = document.getElementById('classList');
+            list.innerHTML = '';
+            
+            state.classes.forEach(cls => {
+                const div = document.createElement('div');
+                div.className = 'class-item';
+                div.innerHTML = `
+                    <span onclick="focusClass(${cls.id})">${escapeHtml(cls.name)}</span>
+                    <button class="class-action-btn delete" onclick="deleteClass(${cls.id})" style="padding:2px 6px;font-size:0.7rem;">×</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateGroupList() {
+            const list = document.getElementById('groupList');
+            list.innerHTML = '';
+            
+            state.groups.forEach(group => {
+                const div = document.createElement('div');
+                div.className = 'group-item';
+                div.innerHTML = `
+                    <div class="group-color" style="background-color: ${group.color}"></div>
+                    <span>${escapeHtml(group.name)}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function focusClass(id) {
+            const div = document.getElementById(`class-${id}`);
+            if (div) {
+                selectClass(id);
+                const rect = div.getBoundingClientRect();
+                const containerRect = canvasContainer.getBoundingClientRect();
+                
+                // Center the class in the viewport
+                const cls = state.classes.find(c => c.id === id);
+                if (cls) {
+                    state.pan.x = containerRect.width / 2 - cls.x * state.zoom - div.offsetWidth / 2 * state.zoom;
+                    state.pan.y = containerRect.height / 2 - cls.y * state.zoom - div.offsetHeight / 2 * state.zoom;
+                    updateCanvasTransform();
+                }
+            }
+        }
+
+        function selectRelationType(type) {
+            // Toggle relationship selection
+            if (state.selectedRelationType === type) {
+                cancelConnecting();
+                return;
+            }
+            
+            state.selectedRelationType = type;
+            state.connectingFrom = null;
+            
+            document.querySelectorAll('.rel-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === type);
+            });
+            
+            connectingModeIndicator.classList.add('active');
+            connectingModeIndicator.textContent = 'Select first class for relationship';
+        }
+
+        function cancelConnecting() {
+            state.selectedRelationType = null;
+            state.connectingFrom = null;
+            
+            document.querySelectorAll('.rel-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            connectingModeIndicator.classList.remove('active');
+            deselectAll();
+        }
+
+        function renderRelationships() {
+            svg.innerHTML = '';
+            
+            // Add defs for markers
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            
+            // Hollow triangle (inheritance, implementation)
+            const hollowTriangle = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            hollowTriangle.setAttribute('id', 'hollow-triangle');
+            hollowTriangle.setAttribute('viewBox', '0 0 10 10');
+            hollowTriangle.setAttribute('refX', '10');
+            hollowTriangle.setAttribute('refY', '5');
+            hollowTriangle.setAttribute('markerWidth', '10');
+            hollowTriangle.setAttribute('markerHeight', '10');
+            hollowTriangle.setAttribute('orient', 'auto');
+            hollowTriangle.innerHTML = '<path d="M 0 0 L 10 5 L 0 10 z" fill="white" stroke="#333" stroke-width="1"/>';
+            defs.appendChild(hollowTriangle);
+            
+            // Filled diamond (composition)
+            const filledDiamond = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            filledDiamond.setAttribute('id', 'filled-diamond');
+            filledDiamond.setAttribute('viewBox', '0 0 12 12');
+            filledDiamond.setAttribute('refX', '0');
+            filledDiamond.setAttribute('refY', '6');
+            filledDiamond.setAttribute('markerWidth', '12');
+            filledDiamond.setAttribute('markerHeight', '12');
+            filledDiamond.setAttribute('orient', 'auto');
+            filledDiamond.innerHTML = '<path d="M 0 6 L 6 0 L 12 6 L 6 12 z" fill="#333" stroke="#333" stroke-width="1"/>';
+            defs.appendChild(filledDiamond);
+            
+            // Hollow diamond (aggregation)
+            const hollowDiamond = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            hollowDiamond.setAttribute('id', 'hollow-diamond');
+            hollowDiamond.setAttribute('viewBox', '0 0 12 12');
+            hollowDiamond.setAttribute('refX', '0');
+            hollowDiamond.setAttribute('refY', '6');
+            hollowDiamond.setAttribute('markerWidth', '12');
+            hollowDiamond.setAttribute('markerHeight', '12');
+            hollowDiamond.setAttribute('orient', 'auto');
+            hollowDiamond.innerHTML = '<path d="M 0 6 L 6 0 L 12 6 L 6 12 z" fill="white" stroke="#333" stroke-width="1"/>';
+            defs.appendChild(hollowDiamond);
+            
+            svg.appendChild(defs);
+
+            state.relationships.forEach(rel => {
+                const fromEl = document.getElementById(`class-${rel.fromId}`);
+                const toEl = document.getElementById(`class-${rel.toId}`);
+                
+                if (!fromEl || !toEl) return;
+
+                const fromRect = {
+                    x: parseFloat(fromEl.style.left),
+                    y: parseFloat(fromEl.style.top),
+                    width: fromEl.offsetWidth,
+                    height: fromEl.offsetHeight
+                };
+                
+                const toRect = {
+                    x: parseFloat(toEl.style.left),
+                    y: parseFloat(toEl.style.top),
+                    width: toEl.offsetWidth,
+                    height: toEl.offsetHeight
+                };
+
+                // Calculate center points
+                const fromCenter = {
+                    x: fromRect.x + fromRect.width / 2,
+                    y: fromRect.y + fromRect.height / 2
+                };
+                
+                const toCenter = {
+                    x: toRect.x + toRect.width / 2,
+                    y: toRect.y + toRect.height / 2
+                };
+
+                // Calculate edge intersection points
+                const fromPoint = getEdgePoint(fromRect, toCenter);
+                const toPoint = getEdgePoint(toRect, fromCenter);
+
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.style.cursor = 'pointer';
+                group.addEventListener('click', () => {
+                    if (confirm('Delete this relationship?')) {
+                        state.relationships = state.relationships.filter(r => r.id !== rel.id);
+                        renderRelationships();
+                    }
+                });
+
+                // Draw line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', fromPoint.x);
+                line.setAttribute('y1', fromPoint.y);
+                line.setAttribute('x2', toPoint.x);
+                line.setAttribute('y2', toPoint.y);
+                line.setAttribute('stroke', '#666');
+                line.setAttribute('stroke-width', '2');
+                line.classList.add('relationship-line');
+
+                // Apply style based on relationship type
+                switch (rel.type) {
+                    case 'inheritance':
+                        line.setAttribute('marker-end', 'url(#hollow-triangle)');
+                        break;
+                    case 'implementation':
+                        line.setAttribute('stroke-dasharray', '5,5');
+                        line.setAttribute('marker-end', 'url(#hollow-triangle)');
+                        break;
+                    case 'composition':
+                        line.setAttribute('marker-start', 'url(#filled-diamond)');
+                        break;
+                    case 'aggregation':
+                        line.setAttribute('marker-start', 'url(#hollow-diamond)');
+                        break;
+                }
+
+                group.appendChild(line);
+
+                // Add multiplicity labels
+                if (rel.fromMultiplicity) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    const offsetX = (toPoint.x - fromPoint.x) * 0.15;
+                    const offsetY = (toPoint.y - fromPoint.y) * 0.15;
+                    text.setAttribute('x', fromPoint.x + offsetX);
+                    text.setAttribute('y', fromPoint.y + offsetY - 5);
+                    text.classList.add('multiplicity-label');
+                    text.textContent = rel.fromMultiplicity;
+                    group.appendChild(text);
+                }
+
+                if (rel.toMultiplicity) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    const offsetX = (toPoint.x - fromPoint.x) * 0.85;
+                    const offsetY = (toPoint.y - fromPoint.y) * 0.85;
+                    text.setAttribute('x', fromPoint.x + offsetX);
+                    text.setAttribute('y', fromPoint.y + offsetY - 5);
+                    text.classList.add('multiplicity-label');
+                    text.textContent = rel.toMultiplicity;
+                    group.appendChild(text);
+                }
+
+                svg.appendChild(group);
+            });
+        }
+
+        function getEdgePoint(rect, target) {
+            const cx = rect.x + rect.width / 2;
+            const cy = rect.y + rect.height / 2;
+            
+            const dx = target.x - cx;
+            const dy = target.y - cy;
+            
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+            
+            let x, y;
+            
+            if (absDx / rect.width > absDy / rect.height) {
+                // Intersects left or right edge
+                x = dx > 0 ? rect.x + rect.width : rect.x;
+                y = cy + dy * (x - cx) / dx;
+            } else {
+                // Intersects top or bottom edge
+                y = dy > 0 ? rect.y + rect.height : rect.y;
+                x = cx + dx * (y - cy) / dy;
+            }
+            
+            return { x, y };
+        }
+
+        function setZoom(newZoom) {
+            state.zoom = Math.max(0.25, Math.min(2, newZoom));
+            updateCanvasTransform();
+        }
+
+        function updateCanvasTransform() {
+            canvas.style.transform = `translate(${state.pan.x}px, ${state.pan.y}px) scale(${state.zoom})`;
+        }
+
+        function updateSVGSize() {
+            svg.setAttribute('width', '3000');
+            svg.setAttribute('height', '3000');
+        }
+
+        async function downloadPNG() {
+            const button = document.getElementById('downloadPngBtn');
+            button.textContent = '⏳ Generating...';
+            button.disabled = true;
+
+            try {
+                // Hide UI elements during capture
+                const actions = document.querySelectorAll('.class-actions');
+                actions.forEach(a => a.style.display = 'none');
+                
+                // Calculate bounds of all elements
+                let minX = Infinity, minY = Infinity;
+                let maxX = -Infinity, maxY = -Infinity;
+
+                state.classes.forEach(cls => {
+                    const el = document.getElementById(`class-${cls.id}`);
+                    if (el) {
+                        minX = Math.min(minX, cls.x);
+                        minY = Math.min(minY, cls.y);
+                        maxX = Math.max(maxX, cls.x + el.offsetWidth);
+                        maxY = Math.max(maxY, cls.y + el.offsetHeight);
+                    }
+                });
+
+                state.groups.forEach(group => {
+                    minX = Math.min(minX, group.x);
+                    minY = Math.min(minY, group.y);
+                    maxX = Math.max(maxX, group.x + group.width);
+                    maxY = Math.max(maxY, group.y + group.height);
+                });
+
+                if (minX === Infinity) {
+                    minX = 0;
+                    minY = 0;
+                    maxX = 800;
+                    maxY = 600;
+                }
+
+                const padding = 50;
+                const width = maxX - minX + padding * 2;
+                const height = maxY - minY + padding * 2;
+
+                // Temporarily adjust canvas position for capture
+                const originalTransform = canvas.style.transform;
+                canvas.style.transform = `translate(${-minX + padding}px, ${-minY + padding}px)`;
+
+                const canvasEl = await html2canvas(canvas, {
+                    backgroundColor: '#1a1a2e',
+                    width: width,
+                    height: height,
+                    scale: 2,
+                    logging: false
+                });
+
+                // Restore canvas position
+                canvas.style.transform = originalTransform;
+
+                // Restore UI elements
+                actions.forEach(a => a.style.display = '');
+
+                // Download
+                const link = document.createElement('a');
+                link.download = 'class-diagram.png';
+                link.href = canvasEl.toDataURL('image/png');
+                link.click();
+
+            } catch (error) {
+                console.error('Failed to generate PNG:', error);
+                alert('Failed to generate PNG. Please try again.');
+            }
+
+            button.textContent = '📥 Download as PNG';
+            button.disabled = false;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
